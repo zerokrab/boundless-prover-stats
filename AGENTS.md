@@ -66,8 +66,6 @@ PROVER_ADDRESS=0xYourAddress LIMIT=10 python3 fetch_orders.py
 PROVER_ADDRESS=0xYourAddress EPOCH_START=50 EPOCH_END=55 python3 fetch_orders.py
 ```
 
-## Git Workflow
+## Maintenance
 
-- Always open PRs — do not push directly to `main`.
-- Branch naming: `zeroklaw/<branch-name>`.
 - Keep this AGENTS.md updated when adding scripts or changing interfaces.
