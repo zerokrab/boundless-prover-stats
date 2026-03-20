@@ -42,22 +42,38 @@ EXPLORER = "https://explorer.boundless.network/api"
 
 
 def api_get(url, timeout=120):
-    """Fetch JSON from the Boundless Explorer API."""
-    result = subprocess.run(
+    """Fetch JSON from the Boundless Explorer API with download progress."""
+    proc = subprocess.Popen(
         ["curl", "-s", "--max-time", str(timeout), url, "-H", "Accept: application/json"],
-        capture_output=True, text=True,
+        stdout=subprocess.PIPE, stderr=subprocess.PIPE,
     )
-    if result.returncode != 0:
+    chunks = []
+    total = 0
+    while True:
+        chunk = proc.stdout.read(65536)
+        if not chunk:
+            break
+        chunks.append(chunk)
+        total += len(chunk)
+        mb = total / (1024 * 1024)
+        sys.stdout.write(f"\r  Downloading... {mb:.1f} MB")
+        sys.stdout.flush()
+    if total > 0:
+        sys.stdout.write(f"\r  Downloaded {total / (1024 * 1024):.1f} MB     \n")
+        sys.stdout.flush()
+    proc.wait()
+    if proc.returncode != 0:
         return None
+    raw = b"".join(chunks).decode()
     try:
-        return json.loads(result.stdout)
+        return json.loads(raw)
     except json.JSONDecodeError:
         return None
 
 
 def fetch_mining_epochs():
     """Fetch all PoVW mining epoch data for the miner."""
-    print(f"Fetching mining data for miner {MINER[:10]}...{MINER[-6:]}...")
+    print(f"[1/3] Fetching mining data for miner {MINER[:10]}...{MINER[-6:]}...")
     data = api_get(f"{EXPLORER}/miners/{MINER}?limit=1000", timeout=30)
     if not data:
         print("  Error: Failed to fetch mining data.")
@@ -65,7 +81,7 @@ def fetch_mining_epochs():
 
     entries = data.get("entries", [])
     summary = data.get("summary", {})
-    print(f"  Found {len(entries)} epochs, total mining cycles: {summary.get('total_work_submitted_formatted', 'N/A')}")
+    print(f"  ✓ {len(entries)} epochs, total mining cycles: {summary.get('total_work_submitted_formatted', 'N/A')}")
 
     # Build epoch -> mining cycles map
     mining_by_epoch = {}
@@ -84,7 +100,7 @@ def fetch_mining_epochs():
 
 def fetch_market_epochs():
     """Fetch market order data and aggregate cycles per epoch."""
-    print(f"\nFetching market orders for prover {PROVER[:10]}...{PROVER[-6:]}...")
+    print(f"\n[2/3] Fetching market orders for prover {PROVER[:10]}...{PROVER[-6:]}...")
 
     # First get epoch aggregates for timestamp mapping
     agg_data = api_get(f"{EXPLORER}/provers/{PROVER}/aggregates/epoch", timeout=30)
@@ -105,7 +121,7 @@ def fetch_market_epochs():
 
     orders = data.get("orders", [])
     has_more = data.get("hasMore", False)
-    print(f"  Found {len(orders)} orders (hasMore={has_more})")
+    print(f"  ✓ {len(orders)} orders (hasMore={has_more})")
 
     if has_more:
         print(f"  Warning: More orders exist. Increase LIMIT env var (current={LIMIT}).")
@@ -144,6 +160,8 @@ def fetch_market_epochs():
 def main():
     mining_by_epoch, mining_summary = fetch_mining_epochs()
     market_by_epoch = fetch_market_epochs()
+
+    print(f"\n[3/3] Computing comparison...")
 
     # Combine all epoch numbers
     all_epochs = sorted(set(list(mining_by_epoch.keys()) + list(market_by_epoch.keys())))
