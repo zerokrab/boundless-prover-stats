@@ -13,6 +13,7 @@ Outputs:
 
 Usage:
   PROVER_ADDRESS=0xProver MINER_LOG_ID=0xMiner python3 fetch_mining_stats.py
+  PROVER_ADDRESS=0xProver MINER_LOG_ID=0xMiner EPOCH_START=30 EPOCH_END=50 python3 fetch_mining_stats.py
 
 Note: The prover address and miner log ID may differ for the same operator.
 """
@@ -32,6 +33,8 @@ if not PROVER or not MINER:
     sys.exit(1)
 
 LIMIT = int(os.environ.get("LIMIT", "100000"))
+EPOCH_START = int(os.environ.get("EPOCH_START", "0"))
+EPOCH_END = int(os.environ.get("EPOCH_END", "999999"))
 OUTPUT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "output")
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
@@ -144,6 +147,11 @@ def main():
 
     # Combine all epoch numbers
     all_epochs = sorted(set(list(mining_by_epoch.keys()) + list(market_by_epoch.keys())))
+
+    # Apply epoch range filter
+    if EPOCH_START > 0 or EPOCH_END < 999999:
+        all_epochs = [e for e in all_epochs if EPOCH_START <= e <= EPOCH_END]
+        print(f"\nFiltered to epochs {EPOCH_START}–{EPOCH_END} ({len(all_epochs)} epochs)")
 
     if not all_epochs:
         print("\nNo data found!")

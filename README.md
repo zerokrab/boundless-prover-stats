@@ -40,6 +40,9 @@ python3 fetch_orders.py
 
 # With a custom limit
 PROVER_ADDRESS=0xYourAddress LIMIT=5000 python3 fetch_orders.py
+
+# Filter to a specific epoch range
+PROVER_ADDRESS=0xYourAddress EPOCH_START=30 EPOCH_END=50 python3 fetch_orders.py
 ```
 
 ### `fetch_mining_stats.py` — Market vs Mining comparison
@@ -51,6 +54,9 @@ export PROVER_ADDRESS=0xYourProverAddress
 export MINER_LOG_ID=0xYourMinerLogID
 
 python3 fetch_mining_stats.py
+
+# Filter to a specific epoch range
+PROVER_ADDRESS=0xProver MINER_LOG_ID=0xMiner EPOCH_START=30 EPOCH_END=50 python3 fetch_mining_stats.py
 ```
 
 Outputs `output/market_vs_mining.csv` with columns:

@@ -10,6 +10,7 @@ Outputs:
 Usage:
   PROVER_ADDRESS=0xYourAddress python3 fetch_orders.py
   PROVER_ADDRESS=0xYourAddress LIMIT=5000 python3 fetch_orders.py
+  PROVER_ADDRESS=0xYourAddress EPOCH_START=30 EPOCH_END=50 python3 fetch_orders.py
 """
 import json
 import os
@@ -25,6 +26,8 @@ if not PROVER:
     sys.exit(1)
 
 LIMIT = int(os.environ.get("LIMIT", "100000"))
+EPOCH_START = int(os.environ.get("EPOCH_START", "0"))
+EPOCH_END = int(os.environ.get("EPOCH_END", "999999"))
 BASE_URL = f"https://explorer.boundless.network/api/provers/{PROVER}"
 OUTPUT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "output")
 os.makedirs(OUTPUT_DIR, exist_ok=True)
@@ -104,8 +107,18 @@ def main():
     # Step 2: Fetch epoch boundaries
     epoch_map = fetch_epoch_map()
 
-    # Step 3: Sort and analyze
+    # Step 3: Sort, filter by epoch range, and analyze
     orders.sort(key=lambda o: o.get("created_at_iso", ""))
+
+    # Apply epoch range filter
+    if EPOCH_START > 0 or EPOCH_END < 999999:
+        pre_filter = len(orders)
+        orders = [
+            o for o in orders
+            if EPOCH_START <= (find_epoch(o.get("created_at_iso", ""), epoch_map) or 0) <= EPOCH_END
+        ]
+        print(f"  Filtered to epochs {EPOCH_START}–{EPOCH_END}: {pre_filter} → {len(orders)} orders")
+
     dates = [o.get("created_at_iso", "") for o in orders]
     statuses = Counter(o.get("request_status", "unknown") for o in orders)
     total_cycles = sum(int(o.get("total_cycles") or 0) for o in orders)
