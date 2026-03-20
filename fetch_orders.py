@@ -34,22 +34,39 @@ os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 
 def api_get(path, params="", timeout=120):
-    """Fetch JSON from the Boundless Explorer API."""
+    """Fetch JSON from the Boundless Explorer API with download progress."""
     url = f"{BASE_URL}/{path}" if path else BASE_URL
     if params:
         url += f"?{params}"
-    result = subprocess.run(
+    proc = subprocess.Popen(
         ["curl", "-s", "--max-time", str(timeout), url, "-H", "Accept: application/json"],
-        capture_output=True, text=True,
+        stdout=subprocess.PIPE, stderr=subprocess.PIPE,
     )
-    if result.returncode != 0:
-        print(f"  curl error (exit {result.returncode}): {result.stderr[:200]}")
+    chunks = []
+    total = 0
+    while True:
+        chunk = proc.stdout.read(65536)
+        if not chunk:
+            break
+        chunks.append(chunk)
+        total += len(chunk)
+        mb = total / (1024 * 1024)
+        sys.stdout.write(f"\r  Downloading... {mb:.1f} MB")
+        sys.stdout.flush()
+    if total > 0:
+        sys.stdout.write(f"\r  Downloaded {total / (1024 * 1024):.1f} MB     \n")
+        sys.stdout.flush()
+    proc.wait()
+    if proc.returncode != 0:
+        stderr = proc.stderr.read().decode()
+        print(f"  curl error (exit {proc.returncode}): {stderr[:200]}")
         return None
+    raw = b"".join(chunks).decode()
     try:
-        return json.loads(result.stdout)
+        return json.loads(raw)
     except json.JSONDecodeError as e:
         print(f"  JSON error: {e}")
-        print(f"  Response: {result.stdout[:200]}")
+        print(f"  Response: {raw[:200]}")
         return None
 
 
@@ -87,7 +104,7 @@ def find_epoch(created_at_iso, epoch_map):
 
 def main():
     # Step 1: Fetch all orders
-    print(f"Fetching orders for prover {PROVER[:10]}...{PROVER[-6:]} (limit={LIMIT})...")
+    print(f"[1/4] Fetching orders for prover {PROVER[:10]}...{PROVER[-6:]} (limit={LIMIT})...")
     data = api_get("orders", f"limit={LIMIT}", timeout=180)
     if not data:
         print("Error: Failed to fetch orders.")
@@ -95,7 +112,7 @@ def main():
 
     orders = data.get("orders", [])
     has_more = data.get("hasMore", False)
-    print(f"  Fetched {len(orders)} orders (hasMore={has_more})")
+    print(f"  ✓ {len(orders)} orders (hasMore={has_more})")
 
     if not orders:
         print("No orders found for this prover.")
@@ -105,9 +122,11 @@ def main():
         print(f"  Warning: There are more orders than the limit ({LIMIT}). Increase LIMIT env var.")
 
     # Step 2: Fetch epoch boundaries
+    print(f"\n[2/4] Fetching epoch boundaries...")
     epoch_map = fetch_epoch_map()
 
     # Step 3: Sort, filter by epoch range, and analyze
+    print(f"\n[3/4] Processing orders...")
     orders.sort(key=lambda o: o.get("created_at_iso", ""))
 
     # Apply epoch range filter
@@ -128,7 +147,8 @@ def main():
     print(f"  Statuses: {dict(statuses)}")
     print(f"  Total cycles: {total_cycles:,} ({total_cycles / 1e12:.2f}T)")
 
-    # Step 4: Write individual proofs CSV
+    # Step 4: Write output files
+    print(f"\n[4/4] Writing output files...")
     proofs_csv = os.path.join(OUTPUT_DIR, "prover_all_proofs.csv")
     with open(proofs_csv, "w", newline="") as f:
         writer = csv.writer(f)
