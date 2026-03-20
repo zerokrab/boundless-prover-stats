@@ -27,6 +27,44 @@ Fetch and analyze order history for any [Boundless Network](https://boundless.ne
 | `chain_id` | Chain ID (8453 = Base Mainnet) |
 | `slashed_at` | Timestamp if prover was slashed, else empty |
 
+## Scripts
+
+### `fetch_orders.py` — Pull all prover orders
+
+Fetches every order for a prover and generates per-proof and per-epoch CSVs.
+
+```bash
+export PROVER_ADDRESS=0xYourProverAddressHere
+
+python3 fetch_orders.py
+
+# With a custom limit
+PROVER_ADDRESS=0xYourAddress LIMIT=5000 python3 fetch_orders.py
+```
+
+### `fetch_mining_stats.py` — Market vs Mining comparison
+
+Compares market order cycles against PoVW mining cycles per epoch. The prover address (market orders) and miner log ID (PoVW work) may differ for the same operator.
+
+```bash
+export PROVER_ADDRESS=0xYourProverAddress
+export MINER_LOG_ID=0xYourMinerLogID
+
+python3 fetch_mining_stats.py
+```
+
+Outputs `output/market_vs_mining.csv` with columns:
+
+| Column | Description |
+|--------|-------------|
+| `epoch` | Boundless epoch number |
+| `mining_cycles` | Total PoVW cycles submitted for this epoch |
+| `market_cycles` | Total market order cycles fulfilled this epoch |
+| `market_pct_of_mining` | What % of mining work came from market orders |
+| `market_orders` | Number of market orders in this epoch |
+| `network_pct` | Miner's share of total network work |
+| `rewards` | ZKC rewards earned this epoch |
+
 ## Requirements
 
 - Python 3.8+
@@ -34,30 +72,18 @@ Fetch and analyze order history for any [Boundless Network](https://boundless.ne
 
 No additional Python packages needed — uses only stdlib.
 
-## Usage
-
-```bash
-# Set your prover address
-export PROVER_ADDRESS=0xYourProverAddressHere
-
-# Fetch all orders (default limit: 100,000)
-python3 fetch_orders.py
-
-# Or with a custom limit
-PROVER_ADDRESS=0xYourAddress LIMIT=5000 python3 fetch_orders.py
-```
-
-Results are written to the `output/` directory.
-
 ## API Reference
 
 This tool uses the Boundless Explorer REST API (no auth required):
 
 ```
-GET https://explorer.boundless.network/api/provers/{address}/orders?limit=N
-GET https://explorer.boundless.network/api/provers/{address}/aggregates/epoch
-GET https://explorer.boundless.network/api/provers/{address}/cumulatives
+GET /api/provers/{address}/orders?limit=N
+GET /api/provers/{address}/aggregates/epoch
+GET /api/provers/{address}/cumulatives
+GET /api/miners/{logId}?limit=N
 ```
+
+Base URL: `https://explorer.boundless.network`
 
 ## Epoch Mapping
 
